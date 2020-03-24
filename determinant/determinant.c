@@ -1,12 +1,22 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define DEBUG 0
+#define STOPWATCH 1
+#define SARRUS 1
+#define LEIBNIZ 1
 
-int det(int *, int); /*returns the determinant*/
+long det(int *, int); /*returns the determinant*/
 
 int main(int argc, char * argv[]){
 	int ncol, nelements, *values, i;
+	#if STOPWATCH
+	double elapsed_time;
+	clock_t begin, end;
+
+	begin = clock();
+	#endif
 	if(argc < 2){
 		printf("How many columns does your matrix have? ");
 		scanf("%d", &ncol);
@@ -17,7 +27,7 @@ int main(int argc, char * argv[]){
 				for(i=0; i<nelements; i++){
 					scanf("%d", values+i);
 				}
-				printf("\nDeterminant: %d\n", det(values, ncol));
+				printf("\nDeterminant: %ld\n", det(values, ncol));
 				free(values);
 			}else
 				printf("Out Of Memory Error! The application will shut down\n");
@@ -31,28 +41,37 @@ int main(int argc, char * argv[]){
 		printf("Sorry, this functionality isn't here yet. Try running the command witout parameters :)\n");
 	}else
 		printf("Too many arguments, the program will shut down\n");
+	#if STOPWATCH
+	end = clock();
+	elapsed_time = (double)(end - begin) / CLOCKS_PER_SEC;
+	printf("CPU Execution time: %f s\n", elapsed_time); /*Not the same as real world time*/
+	#endif
 	return 0;
 }
 
-int det(int * matrix, int ncol){
-	int *submatrix, h, i, j, k, partial, minus, nelsubmat, ncolsubmat, xpos, ypos, pivot;
-
+long det(int * matrix, int ncol){
+	int *submatrix, h, i, j, k, /*partial, */minus, nelsubmat, ncolsubmat, xpos, ypos, pivot;
+	long sa1, sa2, partial;
 	if(ncol == 1)
 		return *matrix;
+	#if LEIBNIZ
 	if(ncol == 2)
-		return ( *matrix * *(matrix+2) ) - ( *(matrix+1) * *(matrix+3) );
+		return ( *(matrix) * *(matrix+3) ) - ( *(matrix+1) * *(matrix+2) );
+	#endif
+	#if SARRUS
 	if(ncol == 3){ /*Sarrus*/
-		h = 0;
-		k = 0;
+		sa1 = 0;
+		sa2 = 0;
 		for(i=0; i<ncol; i++){
-			h = h + *(matrix + (0*ncol) + i) * *( matrix + (1*ncol) + ((i+1)%3) ) * *( matrix + (2*ncol) + ((i+2)%3) ) ;
-			k = k + *(matrix + (2*ncol) + i) * *( matrix + (1*ncol) + ((i+1)%3) ) * *( matrix + (0*ncol) + ((i+2)%3) ) ;
+			sa1 = sa1 + *(matrix + (0*ncol) + i) * *( matrix + (1*ncol) + ((i+1)%3) ) * *( matrix + (2*ncol) + ((i+2)%3) ) ;
+			sa2 = sa2 + *(matrix + (2*ncol) + i) * *( matrix + (1*ncol) + ((i+1)%3) ) * *( matrix + (0*ncol) + ((i+2)%3) ) ;
 		}
 		#if DEBUG
-		printf("\nh:%d, k:%d\n", h, k);
+		printf("\nsa1:%ld, sa2:%ld\n", sa1, sa2);
 		#endif
-		return h-k;
+		return sa1-sa2;
 	}
+	#endif
 	/*Laplace*/
 	pivot = *(matrix);
 	ncolsubmat = ncol-1;
