@@ -28,6 +28,7 @@ STOPWATCH: if defined, the execution time of the whole program will be measured 
 
 #define NINE 9
 #define THREE 3
+#define TWO 2
 #define DASH '-'
 #define PIPE '|'
 #define SPACE ' '
@@ -59,6 +60,7 @@ void printGrid(); /*prints the grid*/
 void initAllClues(); /*Initialises the clues grid*/
 void refreshAllClues(); /*Refreshes the clues grid by deleting numbers*/
 void editClue(int, int, int, int); /*Adds or remove a clue for a given number, passed as 3rd parameter (placed in x=1st param and y=2nd par) depending on the fourth parameter (1 adds it, 0 removes it)*/
+void deleteClues(int, int, int, int, int); /*Input: x1, y1, x2, y2, mode. Deletes every clue, as defined by mode, matching those in x1,y1 & x2,y2 while simultaneously leaving them out of this deletion process*/
 /* void printCluesCell(int, int); *//*Prints all the clues for a given cell*/
 void printAllClues(); /*Self-explainatory*/
 int numberFromOnlyClue(int, int); /*Given the x and y, if it succeedes in converting a square with only one clue into a number on the same square, this function will return the number converted, 0 otherwise*/
@@ -69,6 +71,9 @@ int numberFromClueInSubGrid(int *, int *, int); /*If this sees an only clue in a
 int solveGrid(); /*Returns 1 if the grid is solvable, 0 otherwise*/
 int numCluesOfSquare(int , int); /*Get number of possible clues of a specified square (x,y)*/
 int howManyNumbersOnGrid(); /*Returns how many numbers are placed on the grid*/
+int haveTheSameCluesByPos(int, int, int, int); /*input: x1, y1, x2, y2. returns 0 if they dont have the same clues, 1 otherwise*/
+int firstContainsAtLeastSameCluesAsSecond(square_t, square_t); /*Checks if the first square has the at least all the clues as the second*/
+int findAndManageNakedPairs(int, int, int); /*Input: x, y coords and MODE(1=row, 2=col, 3=subgrid). Returns 1 if found, 0 otherwise. It deletes on its own the clues not needed anymore*/
 #if CLIINPUT && HEXINPUT
 void print_hex(const char *); /*Prints the input values as hexadecimals*/
 #endif
@@ -391,7 +396,7 @@ int solveGrid(){
 								#if DEBUG
 								printf("(%d,%d) Number %d found in (%d,%d) [clue in column]\n", i, j, k, xaux, j+1);
 								#endif
-								found = 1;
+								found = 2;
 							}else {
 								xaux = i;
 								yaux = j;
@@ -399,7 +404,25 @@ int solveGrid(){
 									#if DEBUG
 									printf("(%d,%d) Number %d found in (%d,%d) [clue in subgrid]\n", i, j, k, xaux, yaux);
 									#endif
-									found = 1;
+									found = 3;
+								}
+							}
+							if(!found){
+								if( findAndManageNakedPairs(i, j, 1) ){
+									found = 4;
+									#if DEBUG
+									printf("(%d,%d) [naked pairs found by row]\n", i, j );
+									#endif
+								}else if(findAndManageNakedPairs(i, j, 2)){
+									found = 5;
+									#if DEBUG
+									printf("(%d,%d) [naked pairs found by column]\n", i, j );
+									#endif
+								}else if(findAndManageNakedPairs(i, j, 3)){
+									found = 6;
+									#if DEBUG
+									printf("(%d,%d) [naked pairs found by subgrid]\n", i, j );
+									#endif
 								}
 							}
 							if(found){
@@ -427,6 +450,130 @@ int solveGrid(){
 	#endif
 	*/
 	return 1;
+}
+
+int findAndManageNakedPairs(int x, int y, int mode){
+	int i, j, k, startx, stopx, starty, stopy, ocount, ccount, flag;
+	
+	if(mode == 1){ /*mode==1->find n.p. in the row*/
+		startx = x;
+		stopx = x+1;
+		starty = 0;
+		stopy = NINE;
+	}else if(mode == 2){ /*mode==2->find n.p. in the column*/
+		startx = 0;
+		stopx = NINE;
+		starty = y;
+		stopy = y+1;
+	}else if(mode == 3){ /*mode==3->find n.p. in the subgrid*/
+		startx = x - (x % THREE);
+		stopx = startx + THREE;
+		starty = y - (y % THREE);
+		stopy = starty + THREE;
+	}else{
+		#if DEBUG
+		printf("[ERROR] Wrong call to function findAndManageNakedPairs: invalid mode code\n");
+		#endif
+		return 0;
+	}
+	for(ocount=0, k=0; k < NINE; k++)
+		if(grid[x][y].clues[k] != 0)
+			ocount++;
+	if(ocount != TWO) /*Here I say that only pairs are eliglible*/
+		return 0;
+	for(i=startx; i<stopx; i++){
+		for(j=starty; j<stopy; j++){
+			for(ccount = 0, k=0; k < NINE; k++)
+				ccount++;
+			if(grid[x][y].num == 0 && grid[i][j].num == 0 && ccount == ocount && (x != i && y != j) ){
+				flag = 1;
+				for(k=0; k<NINE && flag; k++)
+					if(grid[i][j].clues[k] != grid[x][y].clues[k])
+						flag = 0;
+				if(flag)
+					deleteClues(x, y, i, j, mode);
+			}
+		}
+	}
+	return 1;
+}
+
+void deleteClues(int ogx, int ogy, int x, int y, int mode){
+	int i, j, k, l, startx, stopx, starty, stopy, clues[TWO], cluescount;
+
+	if(mode == 1){ /*mode==1->find n.p. in the row*/
+		startx = x;
+		stopx = x+1;
+		starty = 0;
+		stopy = NINE;
+	}else if(mode == 2){ /*mode==2->find n.p. in the column*/
+		startx = 0;
+		stopx = NINE;
+		starty = y;
+		stopy = y+1;
+	}else if(mode == 3){ /*mode==3->find n.p. in the subgrid*/
+		startx = x - (x % THREE);
+		stopx = startx + THREE;
+		starty = y - (y % THREE);
+		stopy = starty + THREE;
+	}else{
+		printf("[ERROR] Wrong call to function deleteClues: invalid mode code\n");
+		return ;
+	}
+	/*Crucial point*/
+	for(k = 0, cluescount = 0; k < NINE; k++){
+		if(grid[ogx][ogy].clues[k] == 1){
+			clues[cluescount] = k;
+			cluescount++;
+		}
+	}
+	for(i=startx; i<stopx; i++){
+		for(j=starty; j<stopy; j++){
+			if(mode == 1){ /*row case*/
+				if( j!=ogy && j!=y && firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+					for(k=0; k<cluescount; k++)
+						for(l=0; l<NINE; l++)
+							if(grid[i][j].clues[l] == clues[k])
+								grid[i][j].clues[l] = 0;
+			}else if(mode == 2){ /*column case THESE TWO CASES DOWN HERE ARE NOT 100% GUARANTEED because of me*/
+				if( i!=ogx && i!=x && firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+					for(k=0; k<cluescount; k++)
+						for(l=0; l<NINE; l++)
+							if(grid[i][j].clues[l] == clues[k])
+								grid[i][j].clues[l] = 0;
+			}else{ /*subgrid case*/
+				if(((j!=ogy && j!=y) || (i!=ogx && i!=x))&& firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+					for(k=0; k<cluescount; k++)
+						for(l=0; l<NINE; l++)
+							if(grid[i][j].clues[l] == clues[k])
+								grid[i][j].clues[l] = 0;
+			}
+		}
+	}
+	return;
+}
+
+int haveTheSameCluesByPos(int x1, int y1, int x2, int y2){ /*Useless as today 2020-04-02*/
+	int k;
+	for(k=0; k<NINE; k++)
+		if(grid[x1][y1].clues[k] != grid[x2][y2].clues[k])
+			return 0;
+	return 1;
+}
+
+int firstContainsAtLeastSameCluesAsSecond(square_t first, square_t second){ /*checks if the first has at least all the same elements of the second*/
+	int k, count, total;
+
+	for(k=0, total=0; k<NINE; k++)
+		if(second.clues[k] == 1)
+			total++;
+	for(k=0, count = 0; k<NINE; k++){
+		if(second.clues[k] == 1 && first.clues[k] == 1)
+			count++;
+		if(count == total)
+			return 1;
+	}
+	return 0;
 }
 
 #if CLIINPUT && HEXINPUT
