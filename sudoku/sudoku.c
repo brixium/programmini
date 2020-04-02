@@ -24,7 +24,7 @@ STOPWATCH: if defined, the execution time of the whole program will be measured 
 #define DEBUG 1
 #define HEXINPUT 0
 #define PRINTCLUES 0
-#define STOPWATCH 0
+#define STOPWATCH 1
 
 #define NINE 9
 #define THREE 3
@@ -56,7 +56,8 @@ int checkColumn(int, int); /*returns 1 if a number can be placed in the column y
 int placeNumber(int, int, int); /*returns 0 if the cell is already occupied, 1 otherwise*/
 void initGrid(); /*initialises the grid as blank*/
 void printGrid(); /*prints the grid*/
-void refreshAllClues(); /*Updates the clues grid*/
+void initAllClues(); /*Initialises the clues grid*/
+void refreshAllClues(); /*Refreshes the clues grid by deleting numbers*/
 void editClue(int, int, int, int); /*Adds or remove a clue for a given number, passed as 3rd parameter (placed in x=1st param and y=2nd par) depending on the fourth parameter (1 adds it, 0 removes it)*/
 /* void printCluesCell(int, int); *//*Prints all the clues for a given cell*/
 void printAllClues(); /*Self-explainatory*/
@@ -108,7 +109,7 @@ int main(int argc, char * argv[]){
 	#if STOPWATCH
 	end = clock();
 	time_elapsed = (double)(end-begin)/CLOCKS_PER_SEC;
-	printf("Time elapsed: %lf seconds\n", time_elapsed);
+	printf("Time elapsed: %f seconds\n", time_elapsed);
 	#endif
 	return 0;
 }
@@ -195,7 +196,7 @@ int canBePlaced(int x, int y, int number){
 	return 0;
 }
 
-void refreshAllClues(){
+void initAllClues(){
 	int i, j, k;
 
 	for(i=0; i<NINE; i++)
@@ -208,6 +209,17 @@ void refreshAllClues(){
 						editClue(i, j, k, 0);
 				}
 	return;
+}
+
+void refreshAllClues() {
+	int i, j, k;
+
+	for (i = 0; i < NINE; i++)
+		for (j = 0; j < NINE; j++)
+			if (grid[i][j].num == 0)
+				for (k = 1; k <= NINE; k++)
+					if (!canBePlaced(i, j, k))
+						editClue(i, j, k, 0);
 }
 
 void editClue(int x, int y, int clue, int mode){
@@ -354,7 +366,7 @@ int solveGrid(){
 /*We're supposing that the grid is already initialised*/
 	iterations=0;
 	maxIterations = 81;
-	refreshAllClues();
+	initAllClues();
 	while( (iterations < maxIterations) && (howManyNumbersOnGrid() < (NINE * NINE)) ){
 		for(i=0; i< NINE; i++){
 			for(j=0; j<NINE; j++){
