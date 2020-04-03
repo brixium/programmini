@@ -21,10 +21,10 @@ PRINTCLUES: prints ALL the clues when the program says so ( printAllClues() in t
 STOPWATCH: if defined, the execution time of the whole program will be measured and the results printed at the end of main
 */
 #define CLIINPUT 1
-#define DEBUG 1
+#define DEBUG 0
 #define HEXINPUT 0
 #define PRINTCLUES 0
-#define STOPWATCH 1
+#define STOPWATCH 0
 
 #define NINE 9
 #define THREE 3
@@ -60,7 +60,7 @@ void printGrid(); /*prints the grid*/
 void initAllClues(); /*Initialises the clues grid*/
 void refreshAllClues(); /*Refreshes the clues grid by deleting numbers*/
 void editClue(int, int, int, int); /*Adds or remove a clue for a given number, passed as 3rd parameter (placed in x=1st param and y=2nd par) depending on the fourth parameter (1 adds it, 0 removes it)*/
-void deleteClues(int, int, int, int, int); /*Input: x1, y1, x2, y2, mode. Deletes every clue, as defined by mode, matching those in x1,y1 & x2,y2 while simultaneously leaving them out of this deletion process*/
+void deleteCluesNakedPair(int, int, int, int, int); /*Input: x1, y1, x2, y2, mode. Deletes every clue in a naked pair logic, as defined by mode, matching those in x1,y1 & x2,y2 while simultaneously leaving them out of this deletion process*/
 /* void printCluesCell(int, int); *//*Prints all the clues for a given cell*/
 void printAllClues(); /*Self-explainatory*/
 int numberFromOnlyClue(int, int); /*Given the x and y, if it succeedes in converting a square with only one clue into a number on the same square, this function will return the number converted, 0 otherwise*/
@@ -73,6 +73,7 @@ int numCluesOfSquare(int , int); /*Get number of possible clues of a specified s
 int howManyNumbersOnGrid(); /*Returns how many numbers are placed on the grid*/
 int haveTheSameCluesByPos(int, int, int, int); /*input: x1, y1, x2, y2. returns 0 if they dont have the same clues, 1 otherwise*/
 int firstContainsAtLeastSameCluesAsSecond(square_t, square_t); /*Checks if the first square has the at least all the clues as the second*/
+int firstContainsAtLeastOneClueAsSecond(square_t, square_t); /*If the first square has at least one clue as the second, it returns 1, 0 otherwise*/
 int findAndManageNakedPairs(int, int, int); /*Input: x, y coords and MODE(1=row, 2=col, 3=subgrid). Returns 1 if found, 0 otherwise. It deletes on its own the clues not needed anymore*/
 #if CLIINPUT && HEXINPUT
 void print_hex(const char *); /*Prints the input values as hexadecimals*/
@@ -110,6 +111,9 @@ int main(int argc, char * argv[]){
 		printf("After:\n");
 	else
 		printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
+	#if PRINTCLUES
+	printAllClues();
+	#endif
 	printGrid();
 	#if STOPWATCH
 	end = clock();
@@ -372,6 +376,9 @@ int solveGrid(){
 	iterations=0;
 	maxIterations = 81;
 	initAllClues();
+	#if PRINTCLUES
+	printAllClues();
+	#endif
 	while( (iterations < maxIterations) && (howManyNumbersOnGrid() < (NINE * NINE)) ){
 		for(i=0; i< NINE; i++){
 			for(j=0; j<NINE; j++){
@@ -411,17 +418,17 @@ int solveGrid(){
 								if( findAndManageNakedPairs(i, j, 1) ){
 									found = 4;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by row]\n", i, j );
+									/*printf("(%d,%d) [naked pairs found by row]\n", i, j );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 2)){
 									found = 5;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by column]\n", i, j );
+									/*printf("(%d,%d) [naked pairs found by column]\n", i, j );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 3)){
 									found = 6;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by subgrid]\n", i, j );
+									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i, j );*/
 									#endif
 								}
 							}
@@ -438,7 +445,7 @@ int solveGrid(){
 			}
 		}
 		iterations++;
-		#ifdef DEBUG
+		#if DEBUG
 		printf("Iteration n.%d is over\n", iterations);
 		#endif
 	}
@@ -453,7 +460,7 @@ int solveGrid(){
 }
 
 int findAndManageNakedPairs(int x, int y, int mode){
-	int i, j, k, startx, stopx, starty, stopy, ocount, ccount, flag;
+	int i, j, k, startx, stopx, starty, stopy, ocount, ccount, flag, found;
 	
 	if(mode == 1){ /*mode==1->find n.p. in the row*/
 		startx = x;
@@ -481,24 +488,34 @@ int findAndManageNakedPairs(int x, int y, int mode){
 			ocount++;
 	if(ocount != TWO) /*Here I say that only pairs are eliglible*/
 		return 0;
+	found = 0;
 	for(i=startx; i<stopx; i++){
 		for(j=starty; j<stopy; j++){
 			for(ccount = 0, k=0; k < NINE; k++)
-				ccount++;
-			if(grid[x][y].num == 0 && grid[i][j].num == 0 && ccount == ocount && (x != i && y != j) ){
+				if(grid[i][j].clues[k] != 0)
+					ccount++;
+			if(grid[x][y].num == 0 && grid[i][j].num == 0 && ccount == ocount ){
 				flag = 1;
+				if(mode == 1 && y==j)
+					flag = 0;
+				if(mode == 2 && x==i)
+					flag = 0;
+				if(mode == 3 && ( x==i && y==j ) )
+					flag = 0;
 				for(k=0; k<NINE && flag; k++)
 					if(grid[i][j].clues[k] != grid[x][y].clues[k])
 						flag = 0;
-				if(flag)
-					deleteClues(x, y, i, j, mode);
+				if(flag){
+					deleteCluesNakedPair(x, y, i, j, mode);
+					found = 1;
+				}
 			}
 		}
 	}
-	return 1;
+	return found;
 }
 
-void deleteClues(int ogx, int ogy, int x, int y, int mode){
+void deleteCluesNakedPair(int ogx, int ogy, int x, int y, int mode){
 	int i, j, k, l, startx, stopx, starty, stopy, clues[TWO], cluescount;
 
 	if(mode == 1){ /*mode==1->find n.p. in the row*/
@@ -517,35 +534,35 @@ void deleteClues(int ogx, int ogy, int x, int y, int mode){
 		starty = y - (y % THREE);
 		stopy = starty + THREE;
 	}else{
-		printf("[ERROR] Wrong call to function deleteClues: invalid mode code\n");
+		printf("[ERROR] Wrong call to function deleteCluesNakedPair: invalid mode code\n");
 		return ;
 	}
 	/*Crucial point*/
-	for(k = 0, cluescount = 0; k < NINE; k++){
+	for(k = 0, cluescount = 0; k < NINE; k++)
 		if(grid[ogx][ogy].clues[k] == 1){
 			clues[cluescount] = k;
 			cluescount++;
 		}
-	}
+
 	for(i=startx; i<stopx; i++){
 		for(j=starty; j<stopy; j++){
 			if(mode == 1){ /*row case*/
-				if( j!=ogy && j!=y && firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+				if( j!=ogy && j!=y && firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) )
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(grid[i][j].clues[l] == clues[k])
+							if(l == clues[k])
 								grid[i][j].clues[l] = 0;
-			}else if(mode == 2){ /*column case THESE TWO CASES DOWN HERE ARE NOT 100% GUARANTEED because of me*/
-				if( i!=ogx && i!=x && firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+			}else if(mode == 2){ /*column case*/
+				if( i!=ogx && i!=x && firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) ) /*E qui casca l'asino*/
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(grid[i][j].clues[l] == clues[k])
+							if(l == clues[k])
 								grid[i][j].clues[l] = 0;
 			}else{ /*subgrid case*/
-				if(((j!=ogy && j!=y) || (i!=ogx && i!=x))&& firstContainsAtLeastSameCluesAsSecond( grid[i][j], grid[ogx][ogy] ) )
+				if(((j!=ogy && j!=y) || (i!=ogx && i!=x))&& firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) )
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(grid[i][j].clues[l] == clues[k])
+							if(l == clues[k])
 								grid[i][j].clues[l] = 0;
 			}
 		}
@@ -561,7 +578,7 @@ int haveTheSameCluesByPos(int x1, int y1, int x2, int y2){ /*Useless as today 20
 	return 1;
 }
 
-int firstContainsAtLeastSameCluesAsSecond(square_t first, square_t second){ /*checks if the first has at least all the same elements of the second*/
+int firstContainsAtLeastSameCluesAsSecond(square_t first, square_t second){ /*useless as today 2020-04-03*/
 	int k, count, total;
 
 	for(k=0, total=0; k<NINE; k++)
@@ -573,6 +590,15 @@ int firstContainsAtLeastSameCluesAsSecond(square_t first, square_t second){ /*ch
 		if(count == total)
 			return 1;
 	}
+	return 0;
+}
+
+int firstContainsAtLeastOneClueAsSecond(square_t first, square_t second){ /*checks if the first has at least all the same elements of the second*/
+	int k;
+
+	for(k=0; k<NINE; k++)
+		if(second.clues[k] == 1 && first.clues[k] == 1)
+			return 1;
 	return 0;
 }
 
