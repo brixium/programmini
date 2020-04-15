@@ -1,7 +1,7 @@
 CC=gcc
 LINK=gcc
-CFLAGS=-Wall -O2 -std=c89 -pedantic -static
-CFLAGS_NOT_STATIC=-Wall -O2 -std=c89 -pedantic
+CFLAGS=-Wall -W -O2 -std=c89 -pedantic -static
+CFLAGS_NOT_STATIC=-Wall -W -O2 -std=c89 -pedantic
 
 install_static: sudoku.o 
 	$(LINK) $(CFLAGS) sudoku.o -o sudoku

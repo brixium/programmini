@@ -1,7 +1,13 @@
-/*	Before reading line 10, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
-	Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
-	Future algorithms that needs to be implemented (TODO): 
-	X-wing, XY-wing, naked pairs, remote pairs, BUG+1, skyscraper.
+/*	
+ * Author: brixium 
+ * License: GPLv2
+ * Release: 0.1.1
+ *
+ * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
+ * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
+ * Algorithms already implemented: naked pairs.
+ * Future algorithms that needs to be implemented (TODO): 
+ * X-wing, XY-wing, naked pairs, BUG+1, skyscraper.
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,9 +27,9 @@ PRINTCLUES: prints ALL the clues when the program says so ( printAllClues() in t
 STOPWATCH: if defined, the execution time of the whole program will be measured and the results printed at the end of main
 */
 #define CLIINPUT 1
-#define DEBUG 0
+#define DEBUG 1
 #define HEXINPUT 0
-#define PRINTCLUES 0
+#define PRINTCLUES 1
 #define STOPWATCH 0
 
 #define NINE 9
@@ -75,6 +81,7 @@ int haveTheSameCluesByPos(int, int, int, int); /*input: x1, y1, x2, y2. returns 
 int firstContainsAtLeastSameCluesAsSecond(square_t, square_t); /*Checks if the first square has the at least all the clues as the second*/
 int firstContainsAtLeastOneClueAsSecond(square_t, square_t); /*If the first square has at least one clue as the second, it returns 1, 0 otherwise*/
 int findAndManageNakedPairs(int, int, int); /*Input: x, y coords and MODE(1=row, 2=col, 3=subgrid). Returns 1 if found, 0 otherwise. It deletes on its own the clues not needed anymore*/
+int findAndDeleteImpossibleClues(int, int); /*TODO: find a better name for this one. Input:x,y. Return value: 0 if no operations done, >=1 otherwise, 1 for each ghost number found*/
 #if CLIINPUT && HEXINPUT
 void print_hex(const char *); /*Prints the input values as hexadecimals*/
 #endif
@@ -112,6 +119,7 @@ int main(int argc, char * argv[]){
 	else
 		printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
 	#if PRINTCLUES
+	printf("Final candidates:\n");
 	printAllClues();
 	#endif
 	printGrid();
@@ -377,7 +385,9 @@ int solveGrid(){
 	maxIterations = 81;
 	initAllClues();
 	#if PRINTCLUES
+	printf("Initial clues:\n");
 	printAllClues();
+	printf("---------\n");
 	#endif
 	while( (iterations < maxIterations) && (howManyNumbersOnGrid() < (NINE * NINE)) ){
 		for(i=0; i< NINE; i++){
@@ -387,7 +397,7 @@ int solveGrid(){
 						k = numberFromOnlyClue(i, j);
 						refreshAllClues();
 						#if DEBUG
-						printf("(%d,%d) Number %d found in (%d,%d) [only clue]\n", i, j, k, i+1, j+1);
+						printf("(%d,%d) Number %d found in (%d,%d) [only clue]\n", i+1, j+1, k, i+1, j+1);
 						#endif
 						#if PRINTCLUES
 						printAllClues();
@@ -396,12 +406,12 @@ int solveGrid(){
 						for(k=1; k<=NINE; k++){
 							if( (yaux = numberFromClueInRow(i, k)) ){
 								#if DEBUG
-								printf("(%d,%d) Number %d found in (%d,%d) [clue in row]\n", i, j, k, i+1, yaux);
+								printf("(%d,%d) Number %d found in (%d,%d) [clue in row]\n", i+1, j+1, k, i+1, yaux+1);
 								#endif
 								found = 1;
 							}else if( (xaux = numberFromClueInColumn(j, k)) ){
 								#if DEBUG
-								printf("(%d,%d) Number %d found in (%d,%d) [clue in column]\n", i, j, k, xaux, j+1);
+								printf("(%d,%d) Number %d found in (%d,%d) [clue in column]\n", i+1, j+1, k, xaux+1, j+1);
 								#endif
 								found = 2;
 							}else {
@@ -409,7 +419,7 @@ int solveGrid(){
 								yaux = j;
 								if( numberFromClueInSubGrid(&xaux, &yaux, k) ){
 									#if DEBUG
-									printf("(%d,%d) Number %d found in (%d,%d) [clue in subgrid]\n", i, j, k, xaux, yaux);
+									printf("(%d,%d) Number %d found in (%d,%d) [clue in subgrid]\n", i+1, j+1, k, xaux+1, yaux+1);
 									#endif
 									found = 3;
 								}
@@ -418,18 +428,24 @@ int solveGrid(){
 								if( findAndManageNakedPairs(i, j, 1) ){
 									found = 4;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by row]\n", i, j );*/
+									/*printf("(%d,%d) [naked pairs found by row]\n", i+1, j+1 );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 2)){
 									found = 5;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by column]\n", i, j );*/
+									/*printf("(%d,%d) [naked pairs found by column]\n", i+1, j+1 );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 3)){
 									found = 6;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i, j );*/
+									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );*/
 									#endif
+								}else if( i == j && i % 3 == 0){
+									if(findAndDeleteImpossibleClues(i, j)){
+										#if DEBUG
+										printf("Platessa\n");
+										#endif
+									}
 								}
 							}
 							if(found){
@@ -445,7 +461,7 @@ int solveGrid(){
 			}
 		}
 		iterations++;
-		#if DEBUG
+		#if DEBUG || PRINTCLUES
 		printf("Iteration n.%d is over\n", iterations);
 		#endif
 	}
@@ -550,20 +566,32 @@ void deleteCluesNakedPair(int ogx, int ogy, int x, int y, int mode){
 				if( j!=ogy && j!=y && firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) )
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(l == clues[k])
+							if(l == clues[k]){
 								grid[i][j].clues[l] = 0;
+								#if DEBUG && PRINTCLUES
+								printf("Clue %d in (%d,%d) deleted\n", l+1, i+1, j+1);
+								#endif
+							}
 			}else if(mode == 2){ /*column case*/
 				if( i!=ogx && i!=x && firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) ) /*E qui casca l'asino*/
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(l == clues[k])
+							if(l == clues[k]){
 								grid[i][j].clues[l] = 0;
+								#if DEBUG && PRINTCLUES
+								printf("Clue %d in (%d,%d) deleted\n", l+1, i+1, j+1);
+								#endif
+							}
 			}else{ /*subgrid case*/
 				if(((j!=ogy && j!=y) || (i!=ogx && i!=x))&& firstContainsAtLeastOneClueAsSecond( grid[i][j], grid[ogx][ogy] ) )
 					for(k=0; k<cluescount; k++)
 						for(l=0; l<NINE; l++)
-							if(l == clues[k])
+							if(l == clues[k]){
 								grid[i][j].clues[l] = 0;
+								#if DEBUG && PRINTCLUES
+								printf("Clue %d in (%d,%d) deleted\n", l+1, i+1, j+1);
+								#endif
+							}
 			}
 		}
 	}
@@ -600,6 +628,64 @@ int firstContainsAtLeastOneClueAsSecond(square_t first, square_t second){ /*chec
 		if(second.clues[k] == 1 && first.clues[k] == 1)
 			return 1;
 	return 0;
+}
+
+int findAndDeleteImpossibleClues(int x, int y){
+	/* 
+	* This function goes into a subgrid and if it founds a pattern it operates on other row or columns.
+	* Pattern: in a THREE by THREE subgrid, it looks for a candidate which is distributed only on a row or only on a column.
+	* If the pattern is found, it goes on the row/column and deletes every other same candidate.
+	*/
+	int i, j, k, l, startx, starty, stopx, stopy, potential_candidates[NINE], row_counter, col_counter, ret_value;
+	/*Defines the subgrid's boundaries*/
+	startx = x - (x % THREE);
+	stopx  = startx + THREE;
+	starty = y - (y % THREE);
+	stopy  = starty + THREE;
+	/*Calculates how many clues there are for each number*/
+	for(k=0; k<NINE; k++){
+		potential_candidates[k] = 0;
+		for(i=startx; i<NINE; i++)
+			for(j=starty; j<NINE; j++)
+				if(grid[i][j].clues[k] == 1)
+					potential_candidates[k]++;
+	}
+	ret_value = 0;
+	for(k=0; k<NINE; k++){
+		if(potential_candidates[k] == 3 || potential_candidates[k] == 2){
+			/*check if they are on the same row or column*/
+			for(i=startx; i<stopx; i++){
+				for(j=starty, row_counter=0, col_counter=0; j<stopy; j++){
+					if(grid[i][j].clues[k] == 1){
+						row_counter++;
+					}
+					if(grid[j][i].clues[k] == 1){
+						col_counter++;
+					}
+
+					if(row_counter == potential_candidates[k]){
+						/*Delete every clue in the same row except those ranging from starty to starty*/
+						for(l = 0; l < NINE; l++){
+							if( (l < starty || l > stopy) && grid[i][l].clues[k] == 1){
+								grid[i][l].clues[k] = 0;
+								ret_value++;
+							}
+						}
+					}
+					if(col_counter == potential_candidates[k]){
+						/*Delete every clue in the same column except those ranging from startx to stopx*/
+						for(l=0; l < NINE; l++){
+							if( (l < startx || l > stopx) && grid[l][i].clues[k] == 1 ){
+								grid[l][i].clues[k] = 0;
+								ret_value++;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return ret_value;
 }
 
 #if CLIINPUT && HEXINPUT
