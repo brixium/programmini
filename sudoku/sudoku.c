@@ -1,6 +1,7 @@
 /*	
  * Author: brixium 
- * Release: 0.1.2
+ * Release: 0.1.3
+ * Release notes: added PRINT_GRIDS_HORIZONTAL and PRINT_FINAL_CANDIDATES macros. Moved .txt in a separate "puzzles "folder.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
  * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
@@ -29,7 +30,9 @@ STOPWATCH: if defined, the execution time of the whole program will be measured 
 #define DEBUG 0
 #define HEXINPUT 0
 #define PRINTCANDIDATES 0
-#define STOPWATCH 0
+#define PRINT_FINAL_CANDIDATES 1
+#define STOPWATCH 1
+#define PRINT_GRIDS_HORIZONTAL 1
 
 #define NINE 9
 #define THREE 3
@@ -54,7 +57,9 @@ typedef struct square_s{
 }square_t;
 
 square_t grid[NINE][NINE];
-
+#if PRINT_GRIDS_HORIZONTAL
+square_t copy[NINE][NINE];
+#endif
 int canBePlaced(int, int, int); /*returns 0 if a number cannot be placed in that square, 1 otherwise*/
 int checkSubGrid(int, int, int); /*checks if a number can be placed in a square of x,y coords. Returns 1 if it can, 0 otherwise*/
 int checkRow(int, int); /*checks if a number can be placed in the x row. If it can, it returns 1, 0 otherwise*/
@@ -62,6 +67,7 @@ int checkColumn(int, int); /*returns 1 if a number can be placed in the column y
 int placeNumber(int, int, int); /*returns 0 if the cell is already occupied, 1 otherwise*/
 void initGrid(); /*initialises the grid as blank*/
 void printGrid(); /*prints the grid*/
+void printHorizontally(); /*Prints the original grid on the left and the result on the right*/
 void initAllCandidates(); /*Initialises the candidates grid*/
 void refreshAllCandidates(); /*Refreshes the candidates grid by deleting numbers*/
 void editCandidate(int, int, int, int); /*Adds or remove a candidate for a given number, passed as 3rd parameter (placed in x=1st param and y=2nd par) depending on the fourth parameter (1 adds it, 0 removes it)*/
@@ -111,17 +117,48 @@ int main(int argc, char * argv[]){
 		}
 	}
 	#endif
+
+	#if PRINT_GRIDS_HORIZONTAL
+	for(x=0; x<NINE; x++)
+		for(y=0; y<NINE; y++){
+			copy[x][y].num = grid[x][y].num;
+			for(num=0; num<NINE; num++){
+				copy[x][y].candidates[num] = grid[x][y].candidates[num];
+			}
+		}
+	#endif
+	
+	
+
+	#if PRINT_GRIDS_HORIZONTAL == 0
 	printf("Before:\n");
 	printGrid();
 	if(	solveGrid() )
 		printf("After:\n");
 	else
 		printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
-	#if PRINTCANDIDATES
+	#if PRINT_FINAL_CANDIDATES
 	printf("Final candidates:\n");
 	printAllCandidates();
 	#endif
 	printGrid();
+	#else
+	if(	!solveGrid() )
+	#if PRINT_FINAL_CANDIDATES
+	printf("Final candidates:\n");
+	printAllCandidates();
+	#endif
+	printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
+	printf("Before");
+	num = 0;
+	while(num<15){
+		printf("%c", SPACE);
+		num++;
+	}
+	printf("After\n");
+	printHorizontally();
+	#endif
+
 	#if STOPWATCH
 	end = clock();
 	time_elapsed = (double)(end-begin)/CLOCKS_PER_SEC;
@@ -685,6 +722,63 @@ int findAndDeleteImpossibleCandidates(int x, int y){
 		}
 	}
 	return ret_value;
+}
+
+void printHorizontally(){
+	int i, j, k;
+	/*First line, two lines of dashes*/
+	for(j=0; j<2; j++){
+		for(i=0; i<NINE*2+1; i++)
+    	    printf("%c", DASH);
+		printf("%c%c", SPACE, SPACE);
+	}
+	printf("\n");
+	/*Main part of the grids with their values*/
+	for(i=0; i<NINE; i++){
+		/*rows of the first grid*/
+		for(j=0; j<NINE; j++){
+			if(j%3 == 0){
+				if(copy[i][j].num > 0 && copy[i][j].num < 10)
+					printf("%c%d", PIPE, copy[i][j].num);
+				else
+					printf("%c%c", PIPE, SPACE);
+			}else{
+				if(copy[i][j].num > 0 && copy[i][j].num < 10)
+					printf("%c%d", SPACE, copy[i][j].num);
+				else
+					printf("%c%c", SPACE, SPACE);
+			}
+		}
+		/*Two spaces gap*/
+		printf("|%c%c", SPACE, SPACE);
+		/*rows of the second grid*/
+		for(j=0; j<NINE; j++){
+			if(j%3 == 0){
+				if(grid[i][j].num > 0 && grid[i][j].num < 10)
+					printf("%c%d", PIPE, grid[i][j].num);
+				else
+					printf("%c%c", PIPE, SPACE);
+			}else{
+				if(grid[i][j].num > 0 && grid[i][j].num < 10)
+					printf("%c%d", SPACE, grid[i][j].num);
+				else
+					printf("%c%c", SPACE, SPACE);
+			}
+		}
+		/*Last pipe of second grid*/
+		printf("%c", PIPE);
+		/*newline and also dash line*/
+		printf("\n");
+		if(i%THREE==2){
+			for(j=0; j<TWO; j++){
+				for(k=0; k<NINE*2+1; k++)
+					printf("%c", DASH);
+				printf("%c%c", SPACE, SPACE);
+			}
+			printf("\n");
+		}
+	}
+	return;
 }
 
 #if CLIINPUT && HEXINPUT
