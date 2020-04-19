@@ -1,6 +1,6 @@
 /*	
  * Author: brixium 
- * Release: 0.1.3
+ * Release: 0.1.4
  * Release notes: added PRINT_GRIDS_HORIZONTAL and PRINT_FINAL_CANDIDATES macros. Moved .txt in a separate "puzzles "folder.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
@@ -143,12 +143,12 @@ int main(int argc, char * argv[]){
 	#endif
 	printGrid();
 	#else
-	if(	!solveGrid() )
+	x = solveGrid(); /*reuse of variable x as return value of solveGrid*/
 	#if PRINT_FINAL_CANDIDATES
 	printf("Final candidates:\n");
 	printAllCandidates();
 	#endif
-	printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
+	
 	printf("Before");
 	num = 0;
 	while(num<15){
@@ -156,6 +156,8 @@ int main(int argc, char * argv[]){
 		num++;
 	}
 	printf("After\n");
+	if(!x)
+		printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
 	printHorizontally();
 	#endif
 
