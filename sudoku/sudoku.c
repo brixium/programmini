@@ -1,6 +1,6 @@
 /*	
  * Author: brixium 
- * Release: 0.1.4
+ * Release: 0.1.5
  * Release notes: added PRINT_GRIDS_HORIZONTAL and PRINT_FINAL_CANDIDATES macros. Moved .txt in a separate "puzzles "folder.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
@@ -27,10 +27,10 @@ PRINTCANDIDATES: prints ALL the candidates when the program says so ( printAllCa
 STOPWATCH: if defined, the execution time of the whole program will be measured and the results printed at the end of main
 */
 #define CLIINPUT 1
-#define DEBUG 0
+#define DEBUG 1
 #define HEXINPUT 0
-#define PRINTCANDIDATES 0
-#define PRINT_FINAL_CANDIDATES 1
+#define PRINTCANDIDATES 1
+#define PRINT_FINAL_CANDIDATES 0
 #define STOPWATCH 1
 #define PRINT_GRIDS_HORIZONTAL 1
 
@@ -321,7 +321,7 @@ int numberFromCandidateInRow(int row, int number){
 		}
 	if(counter == 1){ /*Bingo*/
 		if(numberFromCandidate(row, index, number))
-			return index+1;
+			return index;
 	}
 	return 0;
 }
@@ -337,7 +337,7 @@ int numberFromCandidateInColumn(int col, int number){
 		}
 	if(counter == 1){ /*Bingo*/
 		if(numberFromCandidate(index, col, number))
-			return index+1;
+			return index;
 	}
 	return 0;
 }
