@@ -1,7 +1,7 @@
 /*	
  * Author: brixium 
  * Release: 0.1.5
- * Release notes: added PRINT_GRIDS_HORIZONTAL and PRINT_FINAL_CANDIDATES macros. Moved .txt in a separate "puzzles "folder.
+ * Release notes: Fixed minor debug output errors.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
  * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
