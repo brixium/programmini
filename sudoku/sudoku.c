@@ -1,7 +1,7 @@
 /*	
  * Author: brixium 
- * Release: 0.1.5
- * Release notes: Fixed minor debug output errors.
+ * Release: 0.1.6
+ * Release notes: Fixed minor issues.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
  * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
@@ -87,6 +87,7 @@ int firstContainsAtLeastSameCandidatesAsSecond(square_t, square_t); /*Checks if 
 int firstContainsAtLeastOneCandidateAsSecond(square_t, square_t); /*If the first square has at least one candidate as the second, it returns 1, 0 otherwise*/
 int findAndManageNakedPairs(int, int, int); /*Input: x, y coords and MODE(1=row, 2=col, 3=subgrid). Returns 1 if found, 0 otherwise. It deletes on its own the candidates not needed anymore*/
 int findAndDeleteImpossibleCandidates(int, int); /*TODO: find a better name for this one. Input:x,y. Return value: 0 if no operations done, >=1 otherwise, 1 for each ghost number found*/
+int findAndManageXWing(int, int); /**/
 #if CLIINPUT && HEXINPUT
 void print_hex(const char *); /*Prints the input values as hexadecimals*/
 #endif
@@ -466,17 +467,17 @@ int solveGrid(){
 								if( findAndManageNakedPairs(i, j, 1) ){
 									found = 4;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by row]\n", i+1, j+1 );*/
+									printf("(%d,%d) [naked pairs found by row]\n", i+1, j+1 );
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 2)){
 									found = 5;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by column]\n", i+1, j+1 );*/
+									printf("(%d,%d) [naked pairs found by column]\n", i+1, j+1 );
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 3)){
 									found = 6;
 									#if DEBUG
-									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );*/
+									printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );
 									#endif
 								}else if( i == j && i % 3 == 0){
 									if(findAndDeleteImpossibleCandidates(i, j)){
