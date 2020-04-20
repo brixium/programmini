@@ -1,7 +1,7 @@
 /*	
  * Author: brixium 
- * Release: 0.1.6
- * Release notes: Fixed minor issues.
+ * Release: 0.1.7
+ * Release notes: DEACTIVATED findAndDeleteImpossibleCandidates because it's MESSED UP. Fix it ASAP. Partially added an X-Wing solver.
  *
  * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
  * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
@@ -27,10 +27,10 @@ PRINTCANDIDATES: prints ALL the candidates when the program says so ( printAllCa
 STOPWATCH: if defined, the execution time of the whole program will be measured and the results printed at the end of main
 */
 #define CLIINPUT 1
-#define DEBUG 1
+#define DEBUG 0
 #define HEXINPUT 0
 #define PRINTCANDIDATES 1
-#define PRINT_FINAL_CANDIDATES 0
+#define PRINT_FINAL_CANDIDATES 1
 #define STOPWATCH 1
 #define PRINT_GRIDS_HORIZONTAL 1
 
@@ -87,7 +87,10 @@ int firstContainsAtLeastSameCandidatesAsSecond(square_t, square_t); /*Checks if 
 int firstContainsAtLeastOneCandidateAsSecond(square_t, square_t); /*If the first square has at least one candidate as the second, it returns 1, 0 otherwise*/
 int findAndManageNakedPairs(int, int, int); /*Input: x, y coords and MODE(1=row, 2=col, 3=subgrid). Returns 1 if found, 0 otherwise. It deletes on its own the candidates not needed anymore*/
 int findAndDeleteImpossibleCandidates(int, int); /*TODO: find a better name for this one. Input:x,y. Return value: 0 if no operations done, >=1 otherwise, 1 for each ghost number found*/
-int findAndManageXWing(int, int); /**/
+int findAndManageXWing(int, int, int); /*Given (x,y, k), returns 0 if no X wing found for that cell and k as candidate, 1 otherwise*/
+int numOfCandidatesInRow(int, int);
+int numOfCandidatesInColumn(int, int);
+/*int numOfCandidatesInSubGrid(int, int, int);*/
 #if CLIINPUT && HEXINPUT
 void print_hex(const char *); /*Prints the input values as hexadecimals*/
 #endif
@@ -467,24 +470,28 @@ int solveGrid(){
 								if( findAndManageNakedPairs(i, j, 1) ){
 									found = 4;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by row]\n", i+1, j+1 );
+									/*printf("(%d,%d) [naked pairs found by row]\n", i+1, j+1 );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 2)){
 									found = 5;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by column]\n", i+1, j+1 );
+									/*printf("(%d,%d) [naked pairs found by column]\n", i+1, j+1 );*/
 									#endif
 								}else if(findAndManageNakedPairs(i, j, 3)){
 									found = 6;
 									#if DEBUG
-									printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );
+									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );*/
 									#endif
-								}else if( i == j && i % 3 == 0){
+								}/*else if( i == j && i % 3 == 0){
 									if(findAndDeleteImpossibleCandidates(i, j)){
 										#if DEBUG
 										printf("Found and deleted impossible candidates\n");
 										#endif
 									}
+								}*/else if( findAndManageXWing(i, j, k-1) ){
+									#if DEBUG
+									/*printf("(%d,%d) Found an X-Wing, deleted all %d candidates \n", i+1, j+1, k);*//*redundant*/
+									#endif
 								}
 							}
 							if(found){
@@ -782,6 +789,79 @@ void printHorizontally(){
 		}
 	}
 	return;
+}
+
+int findAndManageXWing(int x, int y, int k){
+	/*
+	 * When to use it: 
+	 * By column: checks if this column has only 2 occourrences of the same candidate k in the y column; if this is true, it saves the second row position and checks all the other columns if they also have only 2 occourrences of k. If found, checks if the rows are the same. If so, deletes every other k candidate, except for the 4 cells highlighted, in the 2 rows
+	 * 
+	 */
+	int x2, y2, i, j;
+	
+	if(grid[x][y].num != 0 || grid[x][y].candidates[k] == 0)
+		return 0;
+
+	x2 = -1;
+	if( numOfCandidatesInColumn(y, k) == 2 ){
+		for(i=x+1; i<NINE; i++)
+			if( grid[i][y].candidates[k] == 1 )
+				x2 = i;
+
+		for(j=y+1; j<NINE; j++){
+			if( numOfCandidatesInColumn(j, k) == 2 ){
+				y2 = j;
+				if( grid[x][y2].num == 0 && grid[x2][y2].num == 0 && grid[x][y2].candidates[k] == 1 && grid[x2][y2].candidates[k] == 1 ){
+					/*Delete every other candidate on rows x and x2, except for those in columns y and y2*/
+					if(x2 == -1){
+						/*THIS SHOULD NEVER HAPPEN*/
+						#if DEBUG
+						printf("ERROR! | [findAndManageXWing(int,int,int)] This should never happen! Fix it now!\n");
+						#endif
+						return 0;
+					}
+					/* i = j; *//*save variable*/
+					for(j=0; j<NINE; j++){
+						if( j != y && j != y2 ){
+							
+							grid[x][j].candidates[k] = 0;
+							grid[x2][j].candidates[k] = 0;
+						}
+					}
+					#if DEBUG
+					printf("[X-Wing] The four cells are (%d,%d),(%d,%d),(%d,%d),(%d,%d); candidate: %d\n", x+1,y+1, x+1,y2+1, x2+1,y+1, x2+1,y2+1, k+1);
+					#endif
+					/* j = i; *//*restore var*/
+					return 1;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+int numOfCandidatesInRow(int row, int candidate){
+	int ncan, j;
+
+	ncan = 0;
+	for(j=0; j<NINE; j++){
+		if(grid[row][j].num == 0)
+			if(grid[row][j].candidates[candidate] == 1)
+				ncan++;
+	}
+	return ncan;
+}
+int numOfCandidatesInColumn(int col, int candidate){
+	int ncan, i;
+
+	ncan=0;
+	for(i=0; i<NINE; i++){
+		if( grid[i][col].num == 0 )
+			if(grid[i][col].candidates[candidate] == 1)
+				ncan++;
+	}
+	return ncan;
 }
 
 #if CLIINPUT && HEXINPUT
