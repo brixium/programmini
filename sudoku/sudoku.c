@@ -1,79 +1,29 @@
 /*	
  * Author: brixium 
- * Release: 0.1.7
- * Release notes: DEACTIVATED findAndDeleteImpossibleCandidates because it's MESSED UP. Fix it ASAP. Partially added an X-Wing solver.
+ * Release notes: completed the X-Wing solver. Separated different things. Fixed impossible candidates
  *
- * Before reading the comments below, here's a little background about this project. This is a sudoku solver made for fun, so no big deal.
+ * This is a sudoku solver made for fun, no big deal.
  * Currently it is able to solve grids ranging from easy to hard; expert grids are currently out of range.
- * Algorithms already implemented: naked pairs.
- * Future algorithms that needs to be implemented (TODO): 
- * X-wing, XY-wing, naked pairs, BUG+1, skyscraper.
-*/
+ * Algorithms already implemented: naked pairs, X-Wing.
+ * Future algorithms that needs to be implemented (TODO): XY-wing, naked pairs, BUG+1, skyscraper.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-/* README:
 
-CLIINPUT: if defined and != 0, the input for the program will be taken from a file in the command line as such:
-	$ ./sudoku < inputfile.txt
-	this file must be formatted as such:
-	-the last line must be blank or must contain a leading carriage return (\n);
-	-each line (except the last one) starts with a number and ends with a number and must be exactly 5 characters long;
-	-there are three numbers per line separated with a white space
-DEBUG: if defined and != 0, prints debug info
-HEXINPUT: if defined and != 0 it prints the values of the input file as hexadecimal. ITS VALUE MUST NOT BE 1 WHEN CLIINPUT IS 0 !
-PRINTCANDIDATES: prints ALL the candidates when the program says so ( printAllCandidates() in the code ) and when its value is != 0.
-STOPWATCH: if defined, the execution time of the whole program will be measured and the results printed at the end of main
-*/
-#define CLIINPUT 1
-#define DEBUG 0
-#define HEXINPUT 0
-#define PRINTCANDIDATES 1
-#define PRINT_FINAL_CANDIDATES 1
-#define STOPWATCH 1
-#define PRINT_GRIDS_HORIZONTAL 1
+#include "io/io.h"
 
-#define NINE 9
-#define THREE 3
-#define TWO 2
-#define DASH '-'
-#define PIPE '|'
-#define SPACE ' '
-
-#if CLIINPUT
-#define BUFFERSIZE 7 /*7+1 is the number of chars required on Linux.
-	This is our input string as we humans read it: "1 2 5".
-	Here's the same string but viewed from the computer's POW in HEX: 31 20 32 20 35 0a (6 bytes).
-	Here's my candidates:
-		1) Computers like numbers which are to the power of 2. 8 is ok, 6 is not. Therefore strings have to be 8 bytes long
-		2) The '\0' character (NUL terminator) is 2 bytes long (0xC0 0x80) instead of one (0x00). For further info, visit https://en.wikipedia.org/wiki/Null-terminated_string#Character_encodings .
-*/
-#endif
-
-typedef struct square_s{
-	int num;
-	int candidates[NINE]; /*CANDIDATES: |1|0|1|0|0|0|0|1|0| means that in that square there might be a 1,3 or an 8*/
-}square_t;
-
-square_t grid[NINE][NINE];
-#if PRINT_GRIDS_HORIZONTAL
-square_t copy[NINE][NINE];
-#endif
 int canBePlaced(int, int, int); /*returns 0 if a number cannot be placed in that square, 1 otherwise*/
 int checkSubGrid(int, int, int); /*checks if a number can be placed in a square of x,y coords. Returns 1 if it can, 0 otherwise*/
 int checkRow(int, int); /*checks if a number can be placed in the x row. If it can, it returns 1, 0 otherwise*/
 int checkColumn(int, int); /*returns 1 if a number can be placed in the column y, 0 otherwise*/
 int placeNumber(int, int, int); /*returns 0 if the cell is already occupied, 1 otherwise*/
 void initGrid(); /*initialises the grid as blank*/
-void printGrid(); /*prints the grid*/
-void printHorizontally(); /*Prints the original grid on the left and the result on the right*/
 void initAllCandidates(); /*Initialises the candidates grid*/
 void refreshAllCandidates(); /*Refreshes the candidates grid by deleting numbers*/
 void editCandidate(int, int, int, int); /*Adds or remove a candidate for a given number, passed as 3rd parameter (placed in x=1st param and y=2nd par) depending on the fourth parameter (1 adds it, 0 removes it)*/
 void deleteCandidatesNakedPair(int, int, int, int, int); /*Input: x1, y1, x2, y2, mode. Deletes every candidate in a naked pair logic, as defined by mode, matching those in x1,y1 & x2,y2 while simultaneously leaving them out of this deletion process*/
-/* void printCandidatesCell(int, int); *//*Prints all the candidates for a given cell*/
-void printAllCandidates(); /*Self-explainatory*/
 int numberFromOnlyCandidate(int, int); /*Given the x and y, if it succeedes in converting a square with only one candidate into a number on the same square, this function will return the number converted, 0 otherwise*/
 int numberFromCandidate(int, int, int); /*given thx x,y coordinates and a number, it transforms the cell in a number. Returns 0 if the cell is already occupied, 1 otherwise*/
 int numberFromCandidateInRow(int, int); /*If this sees an only candidate in a row it makes it a number and deletes all the candidates for that square. Parameters: x,y coords*/
@@ -90,10 +40,7 @@ int findAndDeleteImpossibleCandidates(int, int); /*TODO: find a better name for 
 int findAndManageXWing(int, int, int); /*Given (x,y, k), returns 0 if no X wing found for that cell and k as candidate, 1 otherwise*/
 int numOfCandidatesInRow(int, int);
 int numOfCandidatesInColumn(int, int);
-/*int numOfCandidatesInSubGrid(int, int, int);*/
-#if CLIINPUT && HEXINPUT
-void print_hex(const char *); /*Prints the input values as hexadecimals*/
-#endif
+
 int main(int argc, char * argv[]){
 	#if CLIINPUT
 	int x, y, num, blen;
@@ -139,20 +86,22 @@ int main(int argc, char * argv[]){
 	printGrid();
 	if(	solveGrid() )
 		printf("After:\n");
-	else
+	else{
 		printf("The grid can't be solved. Either you entered some wrong values or the sudoku was too complex\n");
-	#if PRINT_FINAL_CANDIDATES
-	printf("Final candidates:\n");
-	printAllCandidates();
-	#endif
+		#if PRINT_FINAL_CANDIDATES
+		printf("Final candidates:\n");
+		printAllCandidates();
+		#endif
+	}
 	printGrid();
 	#else
 	x = solveGrid(); /*reuse of variable x as return value of solveGrid*/
-	#if PRINT_FINAL_CANDIDATES
-	printf("Final candidates:\n");
-	printAllCandidates();
-	#endif
-	
+	if(!x){
+		#if PRINT_FINAL_CANDIDATES
+		printf("Final candidates:\n");
+		printAllCandidates();
+		#endif
+	}
 	printf("Before");
 	num = 0;
 	while(num<15){
@@ -181,35 +130,6 @@ void initGrid(){
 			for(k=0; k<NINE; k++)
 				grid[i][j].candidates[k] = 0;
 		}
-	return;
-}
-void printGrid(){
-	int i, j, k;
-	for(i=0; i<NINE*2+1; i++)
-        printf("%c", DASH);
-	printf("\n");
-	for(i=0; i<NINE; i++){
-		for(j=0; j<NINE; j++){
-			if(j%3 == 0){
-				if(grid[i][j].num > 0 && grid[i][j].num < 10)
-					printf("%c%d", PIPE, grid[i][j].num);
-				else
-					printf("%c%c", PIPE, SPACE);
-			}else{
-				if(grid[i][j].num > 0 && grid[i][j].num < 10)
-					printf("%c%d", SPACE, grid[i][j].num);
-				else
-					printf("%c%c", SPACE, SPACE);
-			}
-		}
-		printf("%c", PIPE);
-		printf("\n");
-		if(i%THREE==2){
-			for(k=0; k<NINE*2+1; k++)
-				printf("%c", DASH);
-			printf("\n");
-		}
-	}
 	return;
 }
 
@@ -287,31 +207,6 @@ void editCandidate(int x, int y, int candidate, int mode){
 	else
 		grid[x][y].candidates[candidate-1] = 0;
 	return ;
-}
-/*
-void printCandidatesCell(int x, int y){
-	int k;
-	for(k=0; k<NINE; k++)
-		if(grid[x][y].candidates[k] != 0)
-			printf("%d%c", k+1, SPACE);
-	printf("\n");
-	return;
-}
-*/
-
-void printAllCandidates(){
-	int i, j, k;
-	for(i=0; i<NINE; i++)
-		for(j=0; j<NINE; j++){
-			printf("x:%d, y:%d; candidates: ", i+1, j+1);
-			/*printCandidatesCell(i, j);*/
-			for(k=0; k<NINE; k++)
-				if(grid[i][j].candidates[k] != 0)
-					printf("%d%c", k+1, SPACE);
-			printf("\n");
-
-		}
-	return;
 }
 
 int numberFromCandidateInRow(int row, int number){
@@ -426,11 +321,11 @@ int solveGrid(){
 	iterations=0;
 	maxIterations = 81;
 	initAllCandidates();
-	#if PRINTCANDIDATES
+/*	#if PRINTCANDIDATES*/
 	printf("Initial candidates:\n");
 	printAllCandidates();
 	printf("---------\n");
-	#endif
+/*	#endif*/
 	while( (iterations < maxIterations) && (howManyNumbersOnGrid() < (NINE * NINE)) ){
 		for(i=0; i< NINE; i++){
 			for(j=0; j<NINE; j++){
@@ -482,15 +377,15 @@ int solveGrid(){
 									#if DEBUG
 									/*printf("(%d,%d) [naked pairs found by subgrid]\n", i+1, j+1 );*/
 									#endif
-								}/*else if( i == j && i % 3 == 0){
-									if(findAndDeleteImpossibleCandidates(i, j)){
-										#if DEBUG
-										printf("Found and deleted impossible candidates\n");
-										#endif
-									}
-								}*/else if( findAndManageXWing(i, j, k-1) ){
+								}else if( findAndManageXWing(i, j, k-1) ){
+									found = 7;
 									#if DEBUG
 									/*printf("(%d,%d) Found an X-Wing, deleted all %d candidates \n", i+1, j+1, k);*//*redundant*/
+									#endif
+								}else if(i %3 == 0 && j%3 == 0 && findAndDeleteImpossibleCandidates(i, j)){
+									found = 8;
+									#if DEBUG
+									printf("Found and deleted impossible candidates\n");
 									#endif
 								}
 							}
@@ -683,6 +578,7 @@ int findAndDeleteImpossibleCandidates(int x, int y){
 	* If the pattern is found, it goes on the row/column and deletes every other same candidate.
 	*/
 	int i, j, k, l, startx, starty, stopx, stopy, potential_candidates[NINE], row_counter, col_counter, ret_value;
+
 	/*Defines the subgrid's boundaries*/
 	startx = x - (x % THREE);
 	stopx  = startx + THREE;
@@ -691,40 +587,49 @@ int findAndDeleteImpossibleCandidates(int x, int y){
 	/*Calculates how many candidates there are for each number*/
 	for(k=0; k<NINE; k++){
 		potential_candidates[k] = 0;
-		for(i=startx; i<NINE; i++)
-			for(j=starty; j<NINE; j++)
-				if(grid[i][j].candidates[k] == 1)
-					potential_candidates[k]++;
+		for(i=startx; i<stopx; i++)
+			for(j=starty; j<stopy; j++)
+				if(grid[i][j].num == 0)
+					if(grid[i][j].candidates[k] == 1)
+						potential_candidates[k]++;
 	}
 	ret_value = 0;
 	for(k=0; k<NINE; k++){
 		if(potential_candidates[k] == 3 || potential_candidates[k] == 2){
 			/*check if they are on the same row or column*/
 			for(i=startx; i<stopx; i++){
-				for(j=starty, row_counter=0, col_counter=0; j<stopy; j++){
+				row_counter = 0;
+				col_counter = 0;
+				for(j=starty; j<stopy; j++){
 					if(grid[i][j].candidates[k] == 1){
 						row_counter++;
 					}
 					if(grid[j][i].candidates[k] == 1){
 						col_counter++;
 					}
-
-					if(row_counter == potential_candidates[k]){
-						/*Delete every candidate in the same row except those ranging from starty to starty*/
-						for(l = 0; l < NINE; l++){
-							if( (l < starty || l > stopy) && grid[i][l].candidates[k] == 1){
-								grid[i][l].candidates[k] = 0;
-								ret_value++;
-							}
+				}
+				if(row_counter == potential_candidates[k]){
+					/*Delete every candidate in the same row except those ranging from starty to starty*/
+					for(l = 0; l < NINE; l++){
+						if( (l < starty || l > stopy) && grid[i][l].candidates[k] == 1){
+							grid[i][l].candidates[k] = 0;
+							#if DEBUG
+							printf("[1] (%d,%d) I deleted candidate %d in cell (%d,%d)\n", x+1, y+1, k+1, i+1, l+1);
+							#endif
+							ret_value++;
 						}
 					}
-					if(col_counter == potential_candidates[k]){
-						/*Delete every candidate in the same column except those ranging from startx to stopx*/
-						for(l=0; l < NINE; l++){
-							if( (l < startx || l > stopx) && grid[l][i].candidates[k] == 1 ){
-								grid[l][i].candidates[k] = 0;
-								ret_value++;
-							}
+				}
+				/*TODO: check conditions*/
+				if(col_counter == potential_candidates[k]){
+					/*Delete every candidate in the same column except those ranging from startx to stopx*/
+					for(l = 0; l < NINE; l++){
+						if( (l < startx || l > stopx) && grid[l][i].candidates[k] == 1 ){
+							grid[j][l].candidates[k] = 0;
+							ret_value++;
+							#if DEBUG
+							printf("[2] (%d,%d) I deleted candidate %d in cell (%d,%d)\n", x+1, y+1, k+1, l+1, i+1);
+							#endif
 						}
 					}
 				}
@@ -732,63 +637,6 @@ int findAndDeleteImpossibleCandidates(int x, int y){
 		}
 	}
 	return ret_value;
-}
-
-void printHorizontally(){
-	int i, j, k;
-	/*First line, two lines of dashes*/
-	for(j=0; j<2; j++){
-		for(i=0; i<NINE*2+1; i++)
-    	    printf("%c", DASH);
-		printf("%c%c", SPACE, SPACE);
-	}
-	printf("\n");
-	/*Main part of the grids with their values*/
-	for(i=0; i<NINE; i++){
-		/*rows of the first grid*/
-		for(j=0; j<NINE; j++){
-			if(j%3 == 0){
-				if(copy[i][j].num > 0 && copy[i][j].num < 10)
-					printf("%c%d", PIPE, copy[i][j].num);
-				else
-					printf("%c%c", PIPE, SPACE);
-			}else{
-				if(copy[i][j].num > 0 && copy[i][j].num < 10)
-					printf("%c%d", SPACE, copy[i][j].num);
-				else
-					printf("%c%c", SPACE, SPACE);
-			}
-		}
-		/*Two spaces gap*/
-		printf("|%c%c", SPACE, SPACE);
-		/*rows of the second grid*/
-		for(j=0; j<NINE; j++){
-			if(j%3 == 0){
-				if(grid[i][j].num > 0 && grid[i][j].num < 10)
-					printf("%c%d", PIPE, grid[i][j].num);
-				else
-					printf("%c%c", PIPE, SPACE);
-			}else{
-				if(grid[i][j].num > 0 && grid[i][j].num < 10)
-					printf("%c%d", SPACE, grid[i][j].num);
-				else
-					printf("%c%c", SPACE, SPACE);
-			}
-		}
-		/*Last pipe of second grid*/
-		printf("%c", PIPE);
-		/*newline and also dash line*/
-		printf("\n");
-		if(i%THREE==2){
-			for(j=0; j<TWO; j++){
-				for(k=0; k<NINE*2+1; k++)
-					printf("%c", DASH);
-				printf("%c%c", SPACE, SPACE);
-			}
-			printf("\n");
-		}
-	}
-	return;
 }
 
 int findAndManageXWing(int x, int y, int k){
@@ -803,27 +651,26 @@ int findAndManageXWing(int x, int y, int k){
 		return 0;
 
 	x2 = -1;
+	y2 = -1;
 	if( numOfCandidatesInColumn(y, k) == 2 ){
 		for(i=x+1; i<NINE; i++)
 			if( grid[i][y].candidates[k] == 1 )
 				x2 = i;
-
+		if(x2 == -1){
+			/*THIS SHOULD NEVER HAPPEN*/
+			#if DEBUG
+			printf("ERROR! | [findAndManageXWing] By col | This should never happen!\n");
+			#endif
+			return 0;
+		}
 		for(j=y+1; j<NINE; j++){
 			if( numOfCandidatesInColumn(j, k) == 2 ){
 				y2 = j;
 				if( grid[x][y2].num == 0 && grid[x2][y2].num == 0 && grid[x][y2].candidates[k] == 1 && grid[x2][y2].candidates[k] == 1 ){
-					/*Delete every other candidate on rows x and x2, except for those in columns y and y2*/
-					if(x2 == -1){
-						/*THIS SHOULD NEVER HAPPEN*/
-						#if DEBUG
-						printf("ERROR! | [findAndManageXWing(int,int,int)] This should never happen! Fix it now!\n");
-						#endif
-						return 0;
-					}
 					/* i = j; *//*save variable*/
+					/*Delete every other candidate on rows x and x2, except for those in columns y and y2*/
 					for(j=0; j<NINE; j++){
 						if( j != y && j != y2 ){
-							
 							grid[x][j].candidates[k] = 0;
 							grid[x2][j].candidates[k] = 0;
 						}
@@ -832,6 +679,37 @@ int findAndManageXWing(int x, int y, int k){
 					printf("[X-Wing] The four cells are (%d,%d),(%d,%d),(%d,%d),(%d,%d); candidate: %d\n", x+1,y+1, x+1,y2+1, x2+1,y+1, x2+1,y2+1, k+1);
 					#endif
 					/* j = i; *//*restore var*/
+					return 1;
+				}
+			}
+		}
+	}else if( numOfCandidatesInRow(x, k) == 2 ){
+		for(j=y+1; j<NINE; j++)
+			if( grid[x][j].candidates[k] == 1 )
+				y2 = j;
+		if(y2 == -1){
+			#if DEBUG
+			printf("ERROR! | [findAndManageXWing] By row | This should never happen!\n");/*THIS SHOULD NEVER HAPPEN*/
+			#endif
+			return 0;
+		}
+		for(i=x+1; i<NINE; i++){
+			if( numOfCandidatesInRow(i, k) == 2 ){
+				x2 = i;
+				if( grid[x2][y].num == 0 && grid[x2][y2].num == 0 && grid[x2][y].candidates[k] == 1 && grid[x2][y2].candidates[k] == 1 ){
+					/*Delete every other candidate on rows x and x2, except for those in columns y and y2*/
+					
+					/* j = i; *//*save variable*/
+					for(i=0; i<NINE; i++){
+						if( i != x && i != x2 ){
+							grid[i][y].candidates[k] = 0;
+							grid[i][y2].candidates[k] = 0;
+						}
+					}
+					#if DEBUG
+					printf("[X-Wing] The four cells are (%d,%d),(%d,%d),(%d,%d),(%d,%d); candidate: %d\n", x+1,y+1, x+1,y2+1, x2+1,y+1, x2+1,y2+1, k+1);
+					#endif
+					/* i = j; *//*restore var*/
 					return 1;
 				}
 			}
@@ -863,14 +741,3 @@ int numOfCandidatesInColumn(int col, int candidate){
 	}
 	return ncan;
 }
-
-#if CLIINPUT && HEXINPUT
-void print_hex(const char *s){
-/*This function is copy-pasted from stackoverflow*/
-	while(*s)
-		printf("%02x", (unsigned int) *s++);
-	printf("\n");
-	return;
-}
-#endif
-
