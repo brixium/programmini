@@ -1,7 +1,7 @@
 #!/bin/sh
 CURRENT_USER=$(whoami)
 ROOT=root
-KERNEL_VERSION=5.5.0+
+KERNEL_VERSION=4.19.0-6-amd64
 NOME_SCRIPT="$(basename $0)"
 
 if [ $CURRENT_USER = $ROOT ]
