@@ -1,0 +1,12 @@
+Compile commands:
+	C89:		gcc -O2 -Wall -W -std=c89 -pedantic -o C89 C89.c -lgmp
+	C++11:		g++ -O2 -Wall -W -std=c++11 -pedantic -o C++11 C89.c -lgmp
+	Haskell:	ghc --make Haskell && rm Haskell.o Haskell.hi
+	Java:		javac Java11.java
+Run commands:
+	Bash:		chmod +x Bash.sh && ./Bash.sh
+	C89: 		./C89
+	C++11:		./C++11
+	Haskell:	./Haskell
+	Java:		java Java11
+	Python3:	chmod +x Python3.py && ./Python3.py
